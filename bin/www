@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+const debug = require('debug')('lists');
+const app = require('../app');
+
+const mqtt = require('mqtt');
+const WebSocket = require('ws');
+
+const Device = require('./device');
+
+app.set('port', process.env.PORT || 3000);
+
+const wss = new WebSocket.Server({server: app, path: "/data", port: 1883});
+
+var state = {};
+
+wss.on('connection', function connection(ws, req) {
+	var pylons = require("./pylons");
+	var response = {
+		pylons: pylons,
+		devices: {}
+	};
+
+	ws.send(JSON.stringify(response));
+
+	var client  = mqtt.connect('mqtt://10.1.0.65')
+
+	client.on('connect', function () {
+		client.subscribe('bat/data');
+	});
+
+	client.on('message', function (topic, message) {
+		var payload = JSON.parse(message.toString());
+
+		// update state
+		for (let f = 0; f < payload.length; f++) {
+			var pylon = payload[f];
+
+			for (let g = 0; g < pylon.data.length; g++) {
+				var device = pylon.data[g];
+				state[device.id] = state[device.id] || new Device();
+				state[device.id].pylons[pylon.id] = device.RSSI;
+			}
+		}
+
+		// calculate positions
+		var xsum, ysum, ssum;
+		var deviceIDs = Object.keys(state);
+		var pylonIDs = Object.keys(pylons);
+
+		for (let f = 0; f < deviceIDs.length; f++) {
+			var deviceID = deviceIDs[f];
+			var device = state[deviceID];
+			xsum = 0;
+			ysum = 0;
+			ssum = 0;
+			for (g = 0; g < pylonIDs.length; g++) {
+				pylonID = pylonIDs[g];
+				let RSSI = state[deviceID].pylons[pylonID];
+
+				xsum += RSSI * pylons[pylonID].x;
+				ysum += RSSI * pylons[pylonID].y;
+				ssum += RSSI;
+
+			}
+
+			response.devices[deviceID] = {
+				x: xsum / ssum,
+				y: ysum / ssum,
+			}
+		}
+
+		ws.send(JSON.stringify(response));
+	});
+});
+
+var server = app.listen(app.get('port'), function() {
+	console.log('Express server listening on port', server.address().port);
+});
