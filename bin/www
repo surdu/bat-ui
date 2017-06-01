@@ -22,7 +22,7 @@ wss.on('connection', function connection(ws, req) {
 
 	ws.send(JSON.stringify(response));
 
-	var client  = mqtt.connect('mqtt://10.1.0.65')
+	var client  = mqtt.connect('mqtt://10.1.0.238')
 
 	client.on('connect', function () {
 		client.subscribe('bat/data');
@@ -42,6 +42,8 @@ wss.on('connection', function connection(ws, req) {
 			}
 		}
 
+		console.log("state:",state);
+
 		// calculate positions
 		var xsum, ysum, ssum;
 		var deviceIDs = Object.keys(state);
@@ -55,7 +57,21 @@ wss.on('connection', function connection(ws, req) {
 			ssum = 0;
 			for (g = 0; g < pylonIDs.length; g++) {
 				pylonID = pylonIDs[g];
-				let RSSI = state[deviceID].pylons[pylonID];
+				let RSSI =state[deviceID].pylons[pylonID];
+
+				if (RSSI > 30 && RSSI <= 60) {
+					RSSI = 100
+				}
+				else {
+					if (RSSI > 60 && RSSI <= 80) {
+						RSSI = 40;
+					}
+					else {
+						if (RSSI > 75 && RSSI <= 100) {
+							RSSI = 5;
+						}
+					}
+				}
 
 				xsum += RSSI * pylons[pylonID].x;
 				ysum += RSSI * pylons[pylonID].y;

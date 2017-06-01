@@ -8,9 +8,6 @@
 	var canvas = $("#map");
 	var ctx = canvas.get(0).getContext('2d');
 
-	ctx.font = '14px serif';
-	ctx.fillStyle = 'rgb(0, 0, 0)';
-
 	function resizeCanvas() {
 		if (!pylons) {
 			return;
@@ -46,6 +43,8 @@
 	}
 
 	function plotDevices() {
+		ctx.fillStyle = 'rgb(0, 0, 0)';
+		ctx.font = '14px sans-serif';
 		var deviceIDs = Object.keys(devices);
 		for (var f = 0; f < deviceIDs.length; f++) {
 			var deviceID = deviceIDs[f];
@@ -57,19 +56,92 @@
 			ctx.fill();
 			ctx.fillText(deviceID, coords.x, coords.y - 10);
 		}
-
-
 	}
+
+	function drawStage () {
+		ctx.fillStyle = 'rgb(185, 185, 185)';
+		var screenWidth = 300;
+		var screenPos = (ctx.canvas.width / 2) - (screenWidth / 2);
+		ctx.fillRect(screenPos, 0, screenWidth, 15);
+	}
+
+	function drawPylons() {
+		ctx.fillStyle = 'rgb(185, 0, 0)';
+		ctx.font = '14px sans-serif';
+
+		var pylonGirth = 20;
+		var pylonsIDs = Object.keys(pylons);
+		for (var f = 0; f < pylonsIDs.length; f++) {
+			var pylon = pylons[pylonsIDs[f]];
+			ctx.beginPath();
+			var coords = pylons2canvasCoords(pylon);
+			ctx.arc(coords.x, coords.y, pylonGirth, 0, Math.PI * 2, true);
+			ctx.fill();
+
+			var textCoords = {};
+			var middleWidth = ctx.canvas.width / 2;
+			var middleHeight = ctx.canvas.height / 2;
+
+			if (coords.x < middleWidth && coords.y < middleHeight) {
+				textCoords.x = coords.x + pylonGirth;
+				textCoords.y = coords.y + pylonGirth;
+			}
+
+			if (coords.x > middleWidth && coords.y < middleHeight) {
+				textCoords.x = coords.x - pylonGirth * 3;
+				textCoords.y = coords.y + pylonGirth;
+			}
+
+			if (coords.x > middleWidth && coords.y > middleHeight) {
+				textCoords.x = coords.x - pylonGirth * 3;
+				textCoords.y = coords.y - pylonGirth * 1.3;
+			}
+
+			if (coords.x < middleWidth && coords.y > middleHeight) {
+				textCoords.x = coords.x + pylonGirth;
+				textCoords.y = coords.y - pylonGirth;
+			}
+
+
+			ctx.fillText(pylonsIDs[f], textCoords.x, textCoords.y + 10);
+		}
+	}
+
+	function drawChairs() {
+		ctx.fillStyle = 'rgb(185, 185, 185)';
+		var chairsNum = {x: 14, y: 8};
+		var chairDim = {w: 20, h: 10};
+		var sitanceFromStage = 200;
+		var margin = 10;
+
+		var chairAreaWidth = (chairsNum.x * (chairDim.w + margin)) - margin;
+
+		var chairsStart = (ctx.canvas.width / 2) - (chairAreaWidth / 2);
+
+		for (var f = 0; f < chairsNum.y; f++) {
+			var coordY = sitanceFromStage + ((chairDim.h + margin) * f);
+			for (var g = 0; g < chairsNum.x; g++) {
+				var coordX = chairsStart + ((chairDim.w + margin) * g);
+				ctx.fillRect(coordX, coordY, chairDim.w, chairDim.h);
+			}
+		}
+	}
+
+	function drawOrnaments() {
+		drawStage();
+		drawChairs();
+		drawPylons();
+	}
+
 
 	var connection = new WebSocket('ws://localhost:1883/data');
 
 	connection.onmessage = function (e) {
 		var response = JSON.parse(e.data);
-		console.log(response);
 		pylons = response.pylons;
 		devices = response.devices;
-
 		resizeCanvas();
+		drawOrnaments();
 		plotDevices();
 	};
 
